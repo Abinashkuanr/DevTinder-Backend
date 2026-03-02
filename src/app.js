@@ -7,18 +7,18 @@ const User = require("./Models/user");
 
  app.use(express.json());
 
-app.post("/signup", async(req,res,) =>{
+app.post("/signup", async (req, res) => {
 
-    //creating a new instance of the User model
+    // creating a new instance of the User model
     const user = new User(req.body);
      
     try {
-          await user.save();
-    res.send("User Added successfully")
-    } catch(err) {
-        res.ststud(400).send("Error saving the user: " + err.message);
+        await user.save();
+        res.send("User Added successfully");
+    } catch (err) {
+        res.status(400).send("Error saving the user: " + err.message);
     }
-    
+
 });
 
 //Get user by email
@@ -72,17 +72,36 @@ app.delete("/user", async (req,res) => {
     }
 });
 
-app.patch("/user", async(req,res) => {
-   const userId = req.body.userId;
+app.patch("/user/:id", async(req,res) => {
+   const userId = req.params.id;
    const data = req.body;
-   try{
-        await User.findByIdAndUpdate({_id: userId}, data);
-        res.send("User updated successfully");
-   }catch (err) {
-       res.status(400).send("Something went wrong");
-    }
-})
 
+   try{
+      const ALLOWED_UPDATES = ["photoUrl", "about","gender","age","skills"];
+
+      const isUpdateAllowed = Object.keys(data).every((k) => 
+         ALLOWED_UPDATES.includes(k)
+      );
+
+      if (!isUpdateAllowed) {
+         throw new Error("Update not allowed");
+      }
+
+       if(data?.skills.length > 10) {
+        throw new Error("Skills cannot be more than 10")
+       }
+       
+      const user = await User.findByIdAndUpdate(userId, data, {
+         new: true,
+         runValidators: true,
+      });
+
+      res.send("User updated successfully");
+
+   }catch (err) {
+      res.status(400).send(err.message);
+   }
+});
 connectDB()
   .then(() => {
     console.log("Database connection established.....");
