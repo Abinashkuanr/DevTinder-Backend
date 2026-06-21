@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
         required: true,
         minlength: 2,
         maxlength: 50,
+  
     },
     lastName: {
         type: String,
@@ -52,7 +53,7 @@ const userSchema = new mongoose.Schema({
         default: "https://geographyandyou.com/images/user-profile.png",
     },
     about: {
-        type: String,                                  // ✅ Added
+        type: String,                                  
         default: "This is a default about of the user!",
         maxlength: 200,
     },
@@ -61,6 +62,8 @@ const userSchema = new mongoose.Schema({
     },
     
 }, { timestamps: true });
+
+
 
 userSchema.methods.getJWT = async function () {
     const user = this;
