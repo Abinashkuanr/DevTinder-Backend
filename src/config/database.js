@@ -1,10 +1,9 @@
-
 const mongoose = require('mongoose');
 
-const coonnectDB = async () => {
+const connectDB = async () => {
     await mongoose.connect(
-  "mongodb+srv://KuanrBhai:tapu1234@coderak.xo6cx77.mongodb.net/devTinder"
-);
+        "mongodb+srv://abinash:abinash123@coderak.xo6cx77.mongodb.net/devTinder?retryWrites=true&w=majority"
+    );
 };
 
-module.exports = coonnectDB;
+module.exports = connectDB;
