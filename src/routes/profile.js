@@ -4,7 +4,7 @@ const { userAuth } = require("../middlewares/auth");
 const { validateEditProfileData } = require("../utils/validaton");
 const bcrypt = require("bcrypt");
 
-profileRouter.get("/profileview", userAuth, async (req, res) => {
+profileRouter.get("/profile", userAuth, async (req, res) => {
     try {
         const user = req.user;
         res.send(user);
@@ -27,9 +27,10 @@ profileRouter.patch('/profile/edit', userAuth, async (req, res) => {
 
         await loggedInUser.save();
 
-        res.json({message: `${loggedInUser.firstName}, your profile updated successfully!`
-          ,data: loggedInUser,
-    });
+        res.json({
+            message: `${loggedInUser.firstName}, your profile updated successfully!`,
+            data: loggedInUser,
+        });
 
     } catch (err) {
         res.status(400).send("Error: " + err.message);
