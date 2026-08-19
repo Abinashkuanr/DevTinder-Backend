@@ -1,9 +1,14 @@
 const express = require("express");
+
 const requestRouter = express.Router();
 
 const { userAuth } = require("../middlewares/auth");
+
 const ConnectionRequest = require("../Models/connectionRequest");
+
 const User = require("../Models/user");
+
+const sendEmail = require("../utils/sendEmail");
 
 
 // ======================================================
@@ -12,89 +17,236 @@ const User = require("../Models/user");
 // ======================================================
 
 requestRouter.post(
-  "/request/send/:status/:toUserId",
-  userAuth,
-  async (req, res) => {
-    try {
-      const fromUserId = req.user._id;
-      const toUserId = req.params.toUserId;
-      const status = req.params.status;
+    "/request/send/:status/:toUserId",
 
-      // Allowed statuses
-      const allowedStatus = ["ignored", "interested"];
+    userAuth,
 
-      if (!allowedStatus.includes(status)) {
-        return res.status(400).json({
-          message: "Invalid status type: " + status,
-        });
-      }
+    async (req, res) => {
 
-      // Cannot send request to yourself
-      if (fromUserId.toString() === toUserId.toString()) {
-        return res.status(400).json({
-          message: "Cannot send connection request to yourself!",
-        });
-      }
+        try {
 
-      // Check if receiver exists
-      const toUser = await User.findById(toUserId);
+            const fromUserId =
+                req.user._id;
 
-      if (!toUser) {
-        return res.status(404).json({
-          message: "User not found!",
-        });
-      }
+            const toUserId =
+                req.params.toUserId;
 
-      // Check existing request in either direction
-      const existingConnectionRequest =
-        await ConnectionRequest.findOne({
-          $or: [
-            {
-              fromUserId: fromUserId,
-              toUserId: toUserId,
-            },
-            {
-              fromUserId: toUserId,
-              toUserId: fromUserId,
-            },
-          ],
-        });
+            const status =
+                req.params.status;
 
-      if (existingConnectionRequest) {
-        return res.status(400).json({
-          message: "Connection Request Exists!!",
-        });
-      }
 
-      // Create request
-      const connectionRequest = new ConnectionRequest({
-        fromUserId,
-        toUserId,
-        status,
-      });
+            // ==================================================
+            // CHECK STATUS
+            // ==================================================
 
-      const data = await connectionRequest.save();
+            const allowedStatus = [
+                "ignored",
+                "interested",
+            ];
 
-      return res.status(201).json({
-        message:
-          req.user.firstName +
-          " is " +
-          status +
-          " in " +
-          toUser.firstName,
+            if (!allowedStatus.includes(status)) {
 
-        data,
-      });
-    } catch (err) {
-      console.error("Send request error:", err);
+                return res.status(400).json({
+                    message:
+                        "Invalid status type: " +
+                        status,
+                });
+            }
 
-      return res.status(500).json({
-        message: "Something went wrong",
-        error: err.message,
-      });
+
+            // ==================================================
+            // CANNOT SEND REQUEST TO YOURSELF
+            // ==================================================
+
+            if (
+                fromUserId.toString() ===
+                toUserId.toString()
+            ) {
+
+                return res.status(400).json({
+                    message:
+                        "Cannot send connection request to yourself!",
+                });
+            }
+
+
+            // ==================================================
+            // FIND RECEIVER
+            // ==================================================
+
+            const toUser =
+                await User.findById(toUserId);
+
+
+            if (!toUser) {
+
+                return res.status(404).json({
+                    message:
+                        "User not found!",
+                });
+            }
+
+
+            // ==================================================
+            // CHECK EXISTING REQUEST
+            // ==================================================
+
+            const existingConnectionRequest =
+                await ConnectionRequest.findOne({
+
+                    $or: [
+
+                        {
+                            fromUserId:
+                                fromUserId,
+
+                            toUserId:
+                                toUserId,
+                        },
+
+                        {
+                            fromUserId:
+                                toUserId,
+
+                            toUserId:
+                                fromUserId,
+                        },
+
+                    ],
+                });
+
+
+            if (existingConnectionRequest) {
+
+                return res.status(400).json({
+                    message:
+                        "Connection Request Exists!!",
+                });
+            }
+
+
+            // ==================================================
+            // CREATE CONNECTION REQUEST
+            // ==================================================
+
+            const connectionRequest =
+                new ConnectionRequest({
+
+                    fromUserId:
+                        fromUserId,
+
+                    toUserId:
+                        toUserId,
+
+                    status:
+                        status,
+                });
+
+
+            const data =
+                await connectionRequest.save();
+
+
+            console.log(
+                " Connection request saved"
+            );
+
+
+            // ==================================================
+            // SEND EMAIL ONLY WHEN INTERESTED
+            // ==================================================
+
+            if (status === "interested") {
+
+                try {
+
+                    console.log(
+                        "📧 Sending email..."
+                    );
+
+                    console.log(
+                        "FROM: no-reply@devtinder.art"
+                    );
+
+                    console.log(
+                        "TO: abinashkuanr677@gmail.com"
+                    );
+
+
+                    const emailResponse =
+                        await sendEmail.run(
+
+                            // Receiver
+                            "abinashkuanr677@gmail.com",
+
+                            // Verified sender
+                            "no-reply@devtinder.art"
+                        );
+
+
+                    console.log(
+                        " Email sent successfully!"
+                    );
+
+
+                    console.log(
+                        "SES Message ID:",
+                        emailResponse.MessageId
+                    );
+
+
+                } catch (emailError) {
+
+                    console.error(
+                        " Email sending failed:"
+                    );
+
+                    console.error(
+                        emailError
+                    );
+
+                }
+            }
+
+
+            // ==================================================
+            // RESPONSE
+            // ==================================================
+
+            return res.status(201).json({
+
+                message:
+                    req.user.firstName +
+                    " is " +
+                    status +
+                    " in " +
+                    toUser.firstName,
+
+                data:
+                    data,
+            });
+
+
+        } catch (err) {
+
+            console.error(
+                " Send request error:",
+                err
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Something went wrong",
+
+                error:
+                    err.message,
+            });
+        }
     }
-  }
 );
+
 
 
 // ======================================================
@@ -103,73 +255,136 @@ requestRouter.post(
 // ======================================================
 
 requestRouter.get(
-  "/user/requests/received",
-  userAuth,
-  async (req, res) => {
-    try {
-      const loggedInUserId = req.user._id;
 
-      const requests = await ConnectionRequest.find({
-        toUserId: loggedInUserId,
-        status: "interested",
-      })
-        .populate(
-          "fromUserId",
-          "firstName lastName photoUrl age gender about skills"
-        )
-        .sort({ createdAt: -1 });
+    "/user/requests/received",
 
-      return res.status(200).json({
-        message: "Received requests fetched successfully",
-        data: requests,
-      });
-    } catch (err) {
-      console.error("Received requests error:", err);
+    userAuth,
 
-      return res.status(500).json({
-        message: "Something went wrong",
-        error: err.message,
-      });
+    async (req, res) => {
+
+        try {
+
+            const loggedInUserId =
+                req.user._id;
+
+
+            const requests =
+                await ConnectionRequest.find({
+
+                    toUserId:
+                        loggedInUserId,
+
+                    status:
+                        "interested",
+
+                })
+
+                .populate(
+                    "fromUserId",
+                    "firstName lastName photoUrl age gender about skills"
+                )
+
+                .sort({
+                    createdAt: -1,
+                });
+
+
+            return res.status(200).json({
+
+                message:
+                    "Received requests fetched successfully",
+
+                data:
+                    requests,
+            });
+
+
+        } catch (err) {
+
+            console.error(
+                "Received requests error:",
+                err
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Something went wrong",
+
+                error:
+                    err.message,
+            });
+        }
     }
-  }
 );
 
 
-// ======================================================
-// GET SENT CONNECTION REQUESTS
-// GET /user/requests/sent
-// ======================================================
+
+
 
 requestRouter.get(
-  "/user/requests/sent",
-  userAuth,
-  async (req, res) => {
-    try {
-      const loggedInUserId = req.user._id;
 
-      const requests = await ConnectionRequest.find({
-        fromUserId: loggedInUserId,
-      })
-        .populate(
-          "toUserId",
-          "firstName lastName photoUrl age gender about skills"
-        )
-        .sort({ createdAt: -1 });
+    "/user/requests/sent",
 
-      return res.status(200).json({
-        message: "Sent requests fetched successfully",
-        data: requests,
-      });
-    } catch (err) {
-      console.error("Sent requests error:", err);
+    userAuth,
 
-      return res.status(500).json({
-        message: "Something went wrong",
-        error: err.message,
-      });
+    async (req, res) => {
+
+        try {
+
+            const loggedInUserId =
+                req.user._id;
+
+
+            const requests =
+                await ConnectionRequest.find({
+
+                    fromUserId:
+                        loggedInUserId,
+
+                })
+
+                .populate(
+                    "toUserId",
+                    "firstName lastName photoUrl age gender about skills"
+                )
+
+                .sort({
+                    createdAt: -1,
+                });
+
+
+            return res.status(200).json({
+
+                message:
+                    "Sent requests fetched successfully",
+
+                data:
+                    requests,
+            });
+
+
+        } catch (err) {
+
+            console.error(
+                "Sent requests error:",
+                err
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Something went wrong",
+
+                error:
+                    err.message,
+            });
+        }
     }
-  }
 );
+
 
 
 // ======================================================
@@ -178,56 +393,116 @@ requestRouter.get(
 // ======================================================
 
 requestRouter.post(
-  "/request/review/:status/:requestId",
-  userAuth,
-  async (req, res) => {
-    try {
-      const loggedInUserId = req.user._id;
 
-      const status = req.params.status;
-      const requestId = req.params.requestId;
+    "/request/review/:status/:requestId",
 
-      // Only accepted or rejected
-      const allowedStatus = ["accepted", "rejected"];
+    userAuth,
 
-      if (!allowedStatus.includes(status)) {
-        return res.status(400).json({
-          message: "Invalid status type: " + status,
-        });
-      }
+    async (req, res) => {
 
-      // Find request
-      const connectionRequest =
-        await ConnectionRequest.findOne({
-          _id: requestId,
-          toUserId: loggedInUserId,
-          status: "interested",
-        });
+        try {
 
-      if (!connectionRequest) {
-        return res.status(404).json({
-          message: "Connection request not found!",
-        });
-      }
+            const loggedInUserId =
+                req.user._id;
 
-      // Update status
-      connectionRequest.status = status;
+            const status =
+                req.params.status;
 
-      const data = await connectionRequest.save();
+            const requestId =
+                req.params.requestId;
 
-      return res.status(200).json({
-        message: `Connection request ${status} successfully`,
-        data,
-      });
-    } catch (err) {
-      console.error("Review request error:", err);
 
-      return res.status(500).json({
-        message: "Something went wrong",
-        error: err.message,
-      });
+            // ==================================================
+            // ALLOWED STATUS
+            // ==================================================
+
+            const allowedStatus = [
+                "accepted",
+                "rejected",
+            ];
+
+
+            if (
+                !allowedStatus.includes(status)
+            ) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Invalid status type: " +
+                        status,
+                });
+            }
+
+
+            // ==================================================
+            // FIND REQUEST
+            // ==================================================
+
+            const connectionRequest =
+                await ConnectionRequest.findOne({
+
+                    _id:
+                        requestId,
+
+                    toUserId:
+                        loggedInUserId,
+
+                    status:
+                        "interested",
+                });
+
+
+            if (!connectionRequest) {
+
+                return res.status(404).json({
+
+                    message:
+                        "Connection request not found!",
+                });
+            }
+
+
+            // ==================================================
+            // UPDATE STATUS
+            // ==================================================
+
+            connectionRequest.status =
+                status;
+
+
+            const data =
+                await connectionRequest.save();
+
+
+            return res.status(200).json({
+
+                message:
+                    `Connection request ${status} successfully`,
+
+                data:
+                    data,
+            });
+
+
+        } catch (err) {
+
+            console.error(
+                "Review request error:",
+                err
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Something went wrong",
+
+                error:
+                    err.message,
+            });
+        }
     }
-  }
 );
 
 
