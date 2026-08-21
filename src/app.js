@@ -4,6 +4,7 @@ const dns = require("dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const dotenv = require("dotenv");
+require("./utils/cronjob");
 
 // Load .env BEFORE importing files that use process.env
 dotenv.config();

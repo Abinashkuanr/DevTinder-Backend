@@ -5,7 +5,6 @@ const requestRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 
 const ConnectionRequest = require("../Models/connectionRequest");
-
 const User = require("../Models/user");
 
 const sendEmail = require("../utils/sendEmail");
@@ -18,21 +17,14 @@ const sendEmail = require("../utils/sendEmail");
 
 requestRouter.post(
     "/request/send/:status/:toUserId",
-
     userAuth,
-
     async (req, res) => {
 
         try {
 
-            const fromUserId =
-                req.user._id;
-
-            const toUserId =
-                req.params.toUserId;
-
-            const status =
-                req.params.status;
+            const fromUserId = req.user._id;
+            const toUserId = req.params.toUserId;
+            const status = req.params.status;
 
 
             // ==================================================
@@ -48,8 +40,7 @@ requestRouter.post(
 
                 return res.status(400).json({
                     message:
-                        "Invalid status type: " +
-                        status,
+                        "Invalid status type: " + status,
                 });
             }
 
@@ -77,12 +68,10 @@ requestRouter.post(
             const toUser =
                 await User.findById(toUserId);
 
-
             if (!toUser) {
 
                 return res.status(404).json({
-                    message:
-                        "User not found!",
+                    message: "User not found!",
                 });
             }
 
@@ -97,19 +86,13 @@ requestRouter.post(
                     $or: [
 
                         {
-                            fromUserId:
-                                fromUserId,
-
-                            toUserId:
-                                toUserId,
+                            fromUserId: fromUserId,
+                            toUserId: toUserId,
                         },
 
                         {
-                            fromUserId:
-                                toUserId,
-
-                            toUserId:
-                                fromUserId,
+                            fromUserId: toUserId,
+                            toUserId: fromUserId,
                         },
 
                     ],
@@ -126,20 +109,16 @@ requestRouter.post(
 
 
             // ==================================================
-            // CREATE CONNECTION REQUEST
+            // CREATE REQUEST
             // ==================================================
 
             const connectionRequest =
                 new ConnectionRequest({
 
-                    fromUserId:
-                        fromUserId,
+                    fromUserId: fromUserId,
+                    toUserId: toUserId,
+                    status: status,
 
-                    toUserId:
-                        toUserId,
-
-                    status:
-                        status,
                 });
 
 
@@ -148,63 +127,72 @@ requestRouter.post(
 
 
             console.log(
-                " Connection request saved"
+                "✅ Connection request saved"
             );
 
 
             // ==================================================
-            // SEND EMAIL ONLY WHEN INTERESTED
+            // SEND EMAIL WHEN INTERESTED
             // ==================================================
 
             if (status === "interested") {
 
                 try {
 
-                    console.log(
-                        "📧 Sending email..."
-                    );
+                    if (!toUser.email) {
 
-                    console.log(
-                        "FROM: no-reply@devtinder.art"
-                    );
+                        console.log(
+                            "⚠️ Receiver email not found"
+                        );
 
-                    console.log(
-                        "TO: abinashkuanr677@gmail.com"
-                    );
+                    } else {
 
+                        console.log(
+                            "📧 Sending email..."
+                        );
 
-                    const emailResponse =
-                        await sendEmail.run(
+                        console.log(
+                            "FROM: no-reply@devtinder.art"
+                        );
 
-                            // Receiver
-                            "abinashkuanr677@gmail.com",
-
-                            // Verified sender
-                            "no-reply@devtinder.art"
+                        console.log(
+                            "TO:",
+                            toUser.email
                         );
 
 
-                    console.log(
-                        " Email sent successfully!"
-                    );
+                        const emailResponse =
+                            await sendEmail.run(
+
+                                toUser.email,
+
+                                "no-reply@devtinder.art"
+                            );
 
 
-                    console.log(
-                        "SES Message ID:",
-                        emailResponse.MessageId
-                    );
+                        console.log(
+                            "✅ Email sent successfully!"
+                        );
 
+
+                        if (emailResponse) {
+
+                            console.log(
+                                "SES Message ID:",
+                                emailResponse.MessageId
+                            );
+                        }
+                    }
 
                 } catch (emailError) {
 
                     console.error(
-                        " Email sending failed:"
+                        "❌ Email sending failed:"
                     );
 
                     console.error(
-                        emailError
+                        emailError.message
                     );
-
                 }
             }
 
@@ -222,18 +210,16 @@ requestRouter.post(
                     " in " +
                     toUser.firstName,
 
-                data:
-                    data,
+                data: data,
             });
 
 
         } catch (err) {
 
             console.error(
-                " Send request error:",
+                "❌ Send request error:",
                 err
             );
-
 
             return res.status(500).json({
 
@@ -248,18 +234,14 @@ requestRouter.post(
 );
 
 
-
 // ======================================================
-// GET RECEIVED CONNECTION REQUESTS
+// GET RECEIVED REQUESTS
 // GET /user/requests/received
 // ======================================================
 
 requestRouter.get(
-
     "/user/requests/received",
-
     userAuth,
-
     async (req, res) => {
 
         try {
@@ -271,19 +253,14 @@ requestRouter.get(
             const requests =
                 await ConnectionRequest.find({
 
-                    toUserId:
-                        loggedInUserId,
-
-                    status:
-                        "interested",
+                    toUserId: loggedInUserId,
+                    status: "interested",
 
                 })
-
                 .populate(
                     "fromUserId",
-                    "firstName lastName photoUrl age gender about skills"
+                    "firstName lastName email photoUrl age gender about skills"
                 )
-
                 .sort({
                     createdAt: -1,
                 });
@@ -294,18 +271,16 @@ requestRouter.get(
                 message:
                     "Received requests fetched successfully",
 
-                data:
-                    requests,
+                data: requests,
             });
 
 
         } catch (err) {
 
             console.error(
-                "Received requests error:",
+                "❌ Received requests error:",
                 err
             );
-
 
             return res.status(500).json({
 
@@ -320,15 +295,14 @@ requestRouter.get(
 );
 
 
-
-
+// ======================================================
+// GET SENT REQUESTS
+// GET /user/requests/sent
+// ======================================================
 
 requestRouter.get(
-
     "/user/requests/sent",
-
     userAuth,
-
     async (req, res) => {
 
         try {
@@ -340,16 +314,13 @@ requestRouter.get(
             const requests =
                 await ConnectionRequest.find({
 
-                    fromUserId:
-                        loggedInUserId,
+                    fromUserId: loggedInUserId,
 
                 })
-
                 .populate(
                     "toUserId",
-                    "firstName lastName photoUrl age gender about skills"
+                    "firstName lastName email photoUrl age gender about skills"
                 )
-
                 .sort({
                     createdAt: -1,
                 });
@@ -360,18 +331,16 @@ requestRouter.get(
                 message:
                     "Sent requests fetched successfully",
 
-                data:
-                    requests,
+                data: requests,
             });
 
 
         } catch (err) {
 
             console.error(
-                "Sent requests error:",
+                "❌ Sent requests error:",
                 err
             );
-
 
             return res.status(500).json({
 
@@ -386,18 +355,14 @@ requestRouter.get(
 );
 
 
-
 // ======================================================
 // REVIEW CONNECTION REQUEST
 // POST /request/review/:status/:requestId
 // ======================================================
 
 requestRouter.post(
-
     "/request/review/:status/:requestId",
-
     userAuth,
-
     async (req, res) => {
 
         try {
@@ -413,7 +378,7 @@ requestRouter.post(
 
 
             // ==================================================
-            // ALLOWED STATUS
+            // CHECK STATUS
             // ==================================================
 
             const allowedStatus = [
@@ -421,16 +386,13 @@ requestRouter.post(
                 "rejected",
             ];
 
-
-            if (
-                !allowedStatus.includes(status)
-            ) {
+            if (!allowedStatus.includes(status)) {
 
                 return res.status(400).json({
 
                     message:
-                        "Invalid status type: " +
-                        status,
+                        "Invalid status type: " + status,
+
                 });
             }
 
@@ -442,14 +404,12 @@ requestRouter.post(
             const connectionRequest =
                 await ConnectionRequest.findOne({
 
-                    _id:
-                        requestId,
+                    _id: requestId,
 
-                    toUserId:
-                        loggedInUserId,
+                    toUserId: loggedInUserId,
 
-                    status:
-                        "interested",
+                    status: "interested",
+
                 });
 
 
@@ -459,12 +419,13 @@ requestRouter.post(
 
                     message:
                         "Connection request not found!",
+
                 });
             }
 
 
             // ==================================================
-            // UPDATE STATUS
+            // UPDATE REQUEST
             // ==================================================
 
             connectionRequest.status =
@@ -475,23 +436,26 @@ requestRouter.post(
                 await connectionRequest.save();
 
 
+            // ==================================================
+            // RESPONSE
+            // ==================================================
+
             return res.status(200).json({
 
                 message:
                     `Connection request ${status} successfully`,
 
-                data:
-                    data,
+                data: data,
+
             });
 
 
         } catch (err) {
 
             console.error(
-                "Review request error:",
+                "❌ Review request error:",
                 err
             );
-
 
             return res.status(500).json({
 
@@ -500,10 +464,12 @@ requestRouter.post(
 
                 error:
                     err.message,
+
             });
         }
     }
 );
+
 
 
 module.exports = requestRouter;
